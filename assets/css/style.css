@@ -1,0 +1,171 @@
+#register-popup {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 99999;
+  justify-content: center;
+  align-items: center;
+}
+
+body.popup-open {
+  overflow: hidden;
+}
+
+.popup-content {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.close-popup {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 24px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  line-height: 1;
+}
+
+#register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+#register-form h3 {
+  margin-top: 0;
+  text-align: center;
+}
+
+#register-form input,
+#register-form select,
+#register-form textarea {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 100%;
+}
+
+#register-form button[type="submit"] {
+  background-color: #665cac;
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+#register-form button[type="submit"]:hover {
+  background-color: #554b96;
+}
+
+.popup-message {
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.popup-message.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.popup-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+/* Custom styles for the Apply Button */
+.cats-edu-apply-btn {
+  border: 2px solid #fff !important;
+  color: #fff !important;
+  background-color: transparent !important;
+  transition: all 0.3s ease !important;
+  font-size: 20px;
+  font-weight: bold;
+  padding: 5px 15px;
+  border-radius: 8px;
+}
+
+.cats-edu-apply-btn:hover {
+  background-color: #fff !important;
+  color: #000 !important;
+  text-decoration: none !important;
+}
+
+.edukacije-wrapper .wp-block-button {
+  width: 100%;
+}
+
+.price-container {
+  margin-top: 20px;
+}
+
+/* Radio button group styling */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.radio-group-label {
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.radio-options {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: normal;
+}
+
+.radio-label input[type="radio"] {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+.radio-label span {
+  user-select: none;
+}
+
+#register-popup input[type="radio"] {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+.tip-kursa .headline {
+  font-size: 1.15em;
+  margin-bottom: 20px;
+}
+
+.tip-kursa label {
+  display: flex !important;
+  justify-content: space-between;
+  flex-direction: row-reverse;
+}
