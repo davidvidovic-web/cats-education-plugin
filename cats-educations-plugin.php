@@ -11,6 +11,9 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Applications management (database storage, admin UI, confirmation emails)
+require_once __DIR__ . '/includes/applications.php';
+
 /**
  * Register Custom Post Types
  */
@@ -135,17 +138,33 @@ function cats_educations_send_test_email() {
         exit;
     }
     
-    // Send test email
-    $subject = 'Test Email - Cats Educations Plugin';
-    $message = "Ovo je test email iz Cats Educations plugina.\n\n";
-    $message .= "Tip: $label edukacije\n";
-    $message .= "Email poslan na: " . implode(', ', $to_emails) . "\n";
-    $message .= "Datum: " . date('d.m.Y H:i:s') . "\n\n";
-    $message .= "Ako vidite ovu poruku, vaša email konfiguracija radi ispravno!";
+    // Send test email using HTML template
+    $subject = 'Test Email (Pregled HTML predloška) - Cats Educations';
+    $sample_data = array(
+        'name'                => 'Ana Marković (Test polaznik)',
+        'email'               => 'ana.test@example.com',
+        'phone'               => '065 123 456',
+        'instagram'           => '@cats_test_profil',
+        'tip_kursa'           => 'individualna',
+        'popup_heading'       => 'BASIC TEST',
+        'popup_desc'          => 'Test edukacija za nokte',
+        'education_date'      => '15.04. - 16.04.',
+        'owner'               => $type,
+        'discount_dates'      => 'do 01.04.',
+        'discount_individual' => '50',
+        'discount_group'      => '30',
+    );
+    $html_message = cats_educations_get_salon_email_html(9999, $sample_data);
+
+    $from_name  = get_bloginfo('name') ?: 'Kozmetički salon Cats';
+    $from_email = get_option('admin_email') ?: 'info@kozmetickisaloncats.com';
+
+    $headers = array(
+        'Content-Type: text/html; charset=UTF-8',
+        'From: ' . $from_name . ' <' . $from_email . '>',
+    );
     
-    $headers = array('Content-Type: text/plain; charset=UTF-8');
-    
-    $sent = wp_mail($to_emails, $subject, $message, $headers);
+    $sent = wp_mail($to_emails, $subject, $html_message, $headers);
     
     if ($sent) {
         wp_redirect(add_query_arg(array('page' => 'cats-educations-settings', 'test' => 'success'), admin_url('options-general.php')));
@@ -342,6 +361,29 @@ function cats_educations_enqueue_assets() {
 add_action('wp_enqueue_scripts', 'cats_educations_enqueue_assets');
 
 /**
+ * Safely add a CSS class to all <p> tags in an HTML snippet without creating duplicate class attributes.
+ */
+function cats_educations_add_p_class($html, $class_to_add) {
+    if (empty($html)) {
+        return '';
+    }
+    return preg_replace_callback('/<p([^>]*)>/i', function($matches) use ($class_to_add) {
+        $attrs = $matches[1];
+        if (preg_match('/class=["\']([^"\']*)["\']/i', $attrs, $class_matches)) {
+            $existing_classes = explode(' ', trim($class_matches[1]));
+            if (!in_array($class_to_add, $existing_classes, true)) {
+                $existing_classes[] = $class_to_add;
+                $new_classes = implode(' ', array_filter($existing_classes));
+                $attrs = preg_replace('/class=["\'][^"\']*["\']/i', 'class="' . esc_attr($new_classes) . '"', $attrs);
+            }
+            return '<p' . $attrs . '>';
+        } else {
+            return '<p class="' . esc_attr($class_to_add) . '"' . $attrs . '>';
+        }
+    }, $html);
+}
+
+/**
  * Block Render Callback
  */
 function cats_educations_render_callback($attributes, $content) {
@@ -371,7 +413,7 @@ function cats_educations_render_callback($attributes, $content) {
             array(
                 'key'     => 'aktivna',
                 'value'   => '1',
-                'compare' => '!='
+                'compare' => '='
             ),
             array(
                 'key'     => 'aktivna',
@@ -396,7 +438,7 @@ function cats_educations_render_callback($attributes, $content) {
                 if ($post_count > 0) {
                     $output .= '</div>'; // Close previous row
                 }
-                $output .= '<div class="wp-block-columns has-accent-5-background-color has-background is-layout-flex wp-container-core-columns-is-layout-28f84493 wp-block-columns-is-layout-flex" style="flex-wrap: wrap;">';
+                $output .= '<div class="wp-block-columns has-accent-5-background-color has-background is-layout-flex wp-block-columns-is-layout-flex" style="flex-wrap: wrap;">';
             }
 
             // Individual Card
@@ -419,8 +461,25 @@ function cats_educations_render_callback($attributes, $content) {
             if ($ukljucuje_poklon_paket && isset($ukljucuje_poklon_paket['ima_poklon_paket']) && $ukljucuje_poklon_paket['ima_poklon_paket']) {
                 $sta_ukljucuje_paket = $ukljucuje_poklon_paket['sta_ukljucuje_paket'];
                 if ($sta_ukljucuje_paket) {
-                   $poklon_with_styles = preg_replace('/<p([^>]*)>/', '<p$1 class="has-text-align-center" style="font-size: 18px;">🎁 ', $sta_ukljucuje_paket);
-                   $output .= $poklon_with_styles;
+                    $poklon_with_styles = preg_replace_callback('/<p([^>]*)>/i', function($matches) {
+                        $attrs = $matches[1];
+                        if (preg_match('/class=["\']([^"\']*)["\']/i', $attrs, $class_matches)) {
+                            $classes = explode(' ', trim($class_matches[1]));
+                            if (!in_array('has-text-align-center', $classes, true)) {
+                                $classes[] = 'has-text-align-center';
+                            }
+                            $attrs = preg_replace('/class=["\'][^"\']*["\']/i', 'class="' . esc_attr(implode(' ', array_filter($classes))) . '"', $attrs);
+                        } else {
+                            $attrs = ' class="has-text-align-center"' . $attrs;
+                        }
+                        if (preg_match('/style=["\']([^"\']*)["\']/i', $attrs, $style_matches)) {
+                            $attrs = preg_replace('/style=["\'][^"\']*["\']/i', 'style="' . esc_attr(rtrim($style_matches[1], ';') . '; font-size: 18px;') . '"', $attrs);
+                        } else {
+                            $attrs .= ' style="font-size: 18px;"';
+                        }
+                        return '<p' . $attrs . '>🎁 ';
+                    }, $sta_ukljucuje_paket);
+                    $output .= $poklon_with_styles;
                 }
             }
 
@@ -443,8 +502,7 @@ function cats_educations_render_callback($attributes, $content) {
                             $section_content .= '<h4 style="font-size: 22px;"><strong>' . esc_html($naslov) . '</strong></h4>';
                         }
                         if ($sadrzaj) {
-                             $sadrzaj_with_class = preg_replace('/<p([^>]*)>/', '<p$1 class="has-small-font-size">', $sadrzaj);
-                             $section_content .= $sadrzaj_with_class;
+                            $section_content .= cats_educations_add_p_class($sadrzaj, 'has-small-font-size');
                         }
                         $content_sections[] = $section_content;
                     }
@@ -454,12 +512,7 @@ function cats_educations_render_callback($attributes, $content) {
             // Dodatno
             $dodatno_ukljucuje = get_field('dodatno_ukljucuje', $post_id);
             if ($dodatno_ukljucuje) {
-                 if (strpos($dodatno_ukljucuje, 'class=') !== false) {
-                     $dodatno_with_class = preg_replace('/<p([^>]*?)class="([^"]*)"([^>]*)>/', '<p$1class="$2 has-small-font-size"$3>', $dodatno_ukljucuje);
-                 } else {
-                     $dodatno_with_class = preg_replace('/<p([^>]*)>/', '<p$1 class="has-small-font-size">', $dodatno_ukljucuje);
-                 }
-                 $content_sections[] = $dodatno_with_class;
+                $content_sections[] = cats_educations_add_p_class($dodatno_ukljucuje, 'has-small-font-size');
             }
 
             // Render Sections
@@ -659,24 +712,35 @@ function cats_educations_handle_form() {
 
     // Validate required fields
     if (empty($data['name']) || empty($data['email']) || empty($data['phone'])) {
-        wp_send_json_error('Molimo popunite sva obavezna polja.');
+        wp_send_json_error('Molimo popunite sva obavezna polja (ime, email, telefon).');
         return;
     }
 
-    // Determine Recipient based on owner
+    if (!is_email($data['email'])) {
+        wp_send_json_error('Molimo unesite ispravnu email adresu.');
+        return;
+    }
+
+    // 1. SAVE APPLICATION IN DATABASE
+    $post_id = cats_educations_save_application($data);
+    if (is_wp_error($post_id) || !$post_id) {
+        wp_send_json_error('Došlo je do greške prilikom čuvanja prijave. Molimo pokušajte ponovo ili nas pozovite direktno.');
+        return;
+    }
+
+    // 2. SEND CONFIRMATION EMAIL TO APPLICANT
+    cats_educations_send_applicant_confirmation($post_id, $data);
+
+    // 3. SEND ADMIN NOTIFICATION EMAIL TO SALON
     $owner = strtolower(trim($data['owner']));
     $to_emails = [];
-    $email_source = '';
 
     if ($owner === 'suza') {
         $option_val = get_option('cats_educations_suza_emails');
-        $email_source = 'Suza settings';
     } elseif ($owner === 'sladja') {
         $option_val = get_option('cats_educations_sladja_emails');
-        $email_source = 'Slađana settings';
     } else {
         $option_val = ''; 
-        $email_source = 'Unknown owner';
     }
 
     // Parse and validate emails from settings
@@ -688,66 +752,29 @@ function cats_educations_handle_form() {
     // Fallback if no valid emails found in options
     if (empty($to_emails)) {
         $to_emails = array('suzana.mladjenovic@icloud.com');
-        $email_source = 'Default fallback';
     }
 
-    // Build email message
-    $to = $to_emails;
-    $subject = 'Nova prijava za edukaciju';
-    $message = "Kurs: {$data['popup_heading']}\n";
-    $message .= "Trajanje: {$data['popup_desc']}\n";
-    if (!empty($data['education_date'])) {
-        $message .= "Datum: {$data['education_date']}\n";
-    }
-    
-    // Add discount information based on selected type
-    $tip_kursa = strtolower(trim($data['tip_kursa']));
-    if (!empty($data['discount_dates'])) {
-        $message .= "Popust važi: {$data['discount_dates']}\n";
-        
-        // Show the appropriate discount amount based on type selected
-        if ($tip_kursa === 'individualna' && !empty($data['discount_individual'])) {
-            $message .= "Vaučer (Individualna): {$data['discount_individual']} KM\n";
-        } elseif ($tip_kursa === 'grupna' && !empty($data['discount_group'])) {
-            $message .= "Vaučer (Grupna): {$data['discount_group']} KM\n";
-        }
-    }
-    
-    $message .= "\n--- Podaci o polazniku ---\n";
-    $message .= "Ime i prezime: {$data['name']}\n";
-    $message .= "Email: {$data['email']}\n";
-    $message .= "Telefon: {$data['phone']}\n";
-    if (!empty($data['instagram'])) {
-        $message .= "Instagram: {$data['instagram']}\n";
-    }
-    if (!empty($data['tip_kursa'])) {
-        $message .= "Tip edukacije: " . ucfirst($data['tip_kursa']) . "\n";
-    }
+    // Build HTML email message for salon
+    $subject = 'Nova prijava za edukaciju – ' . ($data['popup_heading'] ?: 'Cats Edukacije');
+    $html_message = cats_educations_get_salon_email_html($post_id, $data);
 
-    // Headers
-    $headers = array('Content-Type: text/plain; charset=UTF-8');
+    $from_name  = get_bloginfo('name') ?: 'Kozmetički salon Cats';
+    $from_email = get_option('admin_email') ?: 'info@kozmetickisaloncats.com';
+
+    $headers = array(
+        'Content-Type: text/html; charset=UTF-8',
+        'From: ' . $from_name . ' <' . $from_email . '>',
+    );
     if (is_email($data['email'])) {
         $headers[] = 'Reply-To: ' . $data['name'] . ' <' . $data['email'] . '>';
     }
 
-    // Capture wp_mail errors
-    $phpmailer_error = '';
-    add_action('wp_mail_failed', function($error) use (&$phpmailer_error) {
-        $phpmailer_error = $error->get_error_message();
-    });
+    // Send email to salon
+    $sent = wp_mail($to_emails, $subject, $html_message, $headers);
+    update_post_meta($post_id, '_cats_prijava_email_salon_sent', $sent ? '1' : '0');
 
-    // Send email
-    $sent = wp_mail($to, $subject, $message, $headers);
-
-    if ($sent) {
-        wp_send_json_success('Prijava je uspješno poslana!');
-    } else {
-        $error_message = 'Došlo je do greške prilikom slanja emaila.';
-        if ($phpmailer_error) {
-            $error_message .= ' Detalji: ' . $phpmailer_error;
-        }
-        wp_send_json_error($error_message . ' Molimo pokušajte ponovo ili nas kontaktirajte direktno.');
-    }
+    // Return success to applicant
+    wp_send_json_success('Vaša prijava je uspješno poslana! Poslali smo vam potvrdu na email.');
 }
 
 /**
