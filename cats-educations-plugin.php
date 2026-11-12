@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cats Educations
  * Description: Custom Post Types and Block for Educations.
- * Version: 1.3
+ * Version: 1.3.1
  * Author: David Vidovic
  * Author URI: https://davidvidovic.com
  */
@@ -413,7 +413,7 @@ function cats_educations_render_callback($attributes, $content) {
             array(
                 'key'     => 'aktivna',
                 'value'   => '1',
-                'compare' => '='
+                'compare' => '!='
             ),
             array(
                 'key'     => 'aktivna',
